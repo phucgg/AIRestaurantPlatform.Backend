@@ -1,0 +1,108 @@
+name: Identity CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts
+      - name: Setup .NET 9
+        id: setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            curl --fail --show-error --location https://dot.net/v1/dotnet-install.sh --output "$RUNNER_TEMP/dotnet-install.sh"
+            bash "$RUNNER_TEMP/dotnet-install.sh" --channel 9.0.3xx --quality GA --install-dir "$RUNNER_TEMP/identity-dotnet"
+            export DOTNET_ROOT="$RUNNER_TEMP/identity-dotnet"
+            export PATH="$DOTNET_ROOT:$PATH"
+            echo "DOTNET_ROOT=$DOTNET_ROOT" >> "$GITHUB_ENV"
+            echo "$DOTNET_ROOT" >> "$GITHUB_PATH"
+            dotnet --info
+          } 2>&1 | tee artifacts/setup.log
+      - name: Start isolated SQL Server test instance
+        id: database
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="Test!$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          echo "TEST_SQL_PASSWORD=$password" >> "$GITHUB_ENV"
+          connection="Server=localhost,1433;Database=IdentityTests_ci;User Id=sa;Password=$password;Encrypt=True;TrustServerCertificate=True"
+          echo "::add-mask::$connection"
+          echo "IDENTITY_TEST_CONNECTION=$connection" >> "$GITHUB_ENV"
+          {
+            docker run --detach --name identity-ci-sql --publish 1433:1433 \
+              --env ACCEPT_EULA=Y --env "MSSQL_SA_PASSWORD=$password" \
+              mcr.microsoft.com/mssql/server:2022-latest
+            ready=false
+            for attempt in $(seq 1 60); do
+              if docker exec --env "SQLCMDPASSWORD=$password" identity-ci-sql \
+                /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -Q 'SELECT 1'; then
+                ready=true
+                break
+              fi
+              sleep 2
+            done
+            if [ "$ready" != true ]; then
+              echo 'SQL Server test instance did not become ready within 120 seconds.'
+              docker logs identity-ci-sql
+              exit 1
+            fi
+            docker cp database/identity.sql identity-ci-sql:/tmp/identity.sql
+            docker exec --env "SQLCMDPASSWORD=$password" identity-ci-sql \
+              /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b \
+              -i /tmp/identity.sql -v IdentityDatabase=IdentityTests_ci
+          } 2>&1 | tee artifacts/database.log
+      - name: Restore
+        id: restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore AIRestaurantPlatform.Backend.slnx 2>&1 | tee artifacts/restore.log
+      - name: Build Release
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build AIRestaurantPlatform.Backend.slnx --no-restore -c Release 2>&1 | tee artifacts/build.log
+      - name: Run tests and enforce required coverage
+        id: test
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet test IdentityService.Tests/IdentityService.Tests.csproj --no-build -c Release \
+            --logger 'trx;LogFileName=identity.trx' --results-directory artifacts/TestResults \
+            2>&1 | tee artifacts/test.log
+          python3 -m unittest discover -s ci -p '*_tests.py' -v 2>&1 | tee -a artifacts/test.log
+          python3 ci/test-report.py --verify 2>&1 | tee -a artifacts/test.log
+      - name: Write Summary
+        if: always()
+        env:
+          SETUP_OUTCOME: ${{ steps.setup.outcome }}
+          DATABASE_OUTCOME: ${{ steps.database.outcome }}
+          RESTORE_OUTCOME: ${{ steps.restore.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+        run: python3 ci/test-report.py
+      - name: Upload logs and TRX
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-ci-results
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary SQL Server
+        if: always()
+        run: docker rm -f identity-ci-sql

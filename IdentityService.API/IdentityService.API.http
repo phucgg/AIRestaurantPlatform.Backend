@@ -1,0 +1,35 @@
+@baseUrl = https://localhost:7032
+# Set userName, password, accessToken, staffUserName, staffPassword and staffRoleId
+# in your HTTP client's private environment. Never commit real credentials/tokens.
+
+### Login by UserName only
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "userName": "{{userName}}",
+  "password": "{{password}}"
+}
+
+### Current safe user information
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{accessToken}}
+
+### Admin creates staff (use actual allowed RoleId from your database)
+POST {{baseUrl}}/api/admin/users
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userName": "{{staffUserName}}",
+  "password": "{{staffPassword}}",
+  "roleId": {{staffRoleId}},
+  "fullName": "Restaurant Staff",
+  "email": null,
+  "phoneNumber": null,
+  "avatarUrl": null
+}
+
+### Logout current session; reuse of this token must return 401
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{accessToken}}

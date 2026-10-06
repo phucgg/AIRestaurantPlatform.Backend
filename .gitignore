@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+.vs/
+TestResults/
+artifacts/
+.env
+*.user
+**/__pycache__/
+**/http-client.env.json
+**/http-client.private.env.json

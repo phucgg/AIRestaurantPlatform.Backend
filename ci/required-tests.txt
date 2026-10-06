@@ -1,0 +1,24 @@
+# Required method name | minimum number of passing cases. No skipped/failed cases allowed.
+AllowedRolesCanLogin|6
+WrongPasswordIsRejected
+UnknownUserIsRejected
+InactiveUserCannotLogin
+CustomerCannotLogin
+UnknownRoleCannotLogin
+AnonymousRequestsAreRejected|3
+LogoutInvalidatesSessionAndToken
+DisabledUserTokenIsRejected
+WaiterLoginInvalidatesOldSession
+ConcurrentWaiterLoginsLeaveOneValidSession
+OtherRolesCanKeepMultipleSessions|5
+OnlyAdminCanCreateStaff|6
+AdminCanCreateEachStaffRole|5
+AdminCannotCreateForbiddenRoles|4
+ResponsesNeverExposeSensitiveData
+TokenValidationRejectsInvalidTokens|7
+CurrentRoleIsUsedForAuthorization
+SessionMustBelongToUserAndBeUnexpired|3
+UserNameUniquenessIsCaseInsensitive
+PublicRegistrationAndRefreshAreAbsent
+DatabaseFirstSchemaHasOnlyApprovedTablesAndColumns
+InvalidCreateRequestsAreRejected|5
