@@ -12,6 +12,11 @@ namespace IdentityService.API.Controllers;
 public sealed class AdminUsersController(IdentityAuthService auth) : ControllerBase
 {
     [HttpPost]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Create(CreateUserRequest request, CancellationToken ct)
     {
         if (request.AvatarUrl is not null && (!Uri.TryCreate(request.AvatarUrl, UriKind.Absolute, out var url)

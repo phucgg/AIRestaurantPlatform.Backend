@@ -1,15 +1,37 @@
 using System.Text;
 using IdentityService.API.Data;
 using IdentityService.API.Models;
+using IdentityService.API.OpenApi;
 using IdentityService.API.Security;
 using IdentityService.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "AI-Powered Smart Restaurant Platform",
+            Version = "v1",
+            Description = "Identity Service: staff login, current user, logout and Admin account creation."
+        });
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "Paste only the accessToken. Swagger adds the Bearer prefix automatically."
+        });
+        options.OperationFilter<BearerSecurityOperationFilter>();
+    });
+}
 builder.Services.AddProblemDetails();
 builder.Services.AddOptions<JwtSettings>().BindConfiguration("Jwt").ValidateDataAnnotations()
     .Validate(jwt => Encoding.UTF8.GetByteCount(jwt.Key) >= 32, "Jwt:Key must contain at least 32 bytes.")
@@ -50,6 +72,18 @@ builder.Services.AddAuthorization(options => options.AddPolicy("Admin", policy =
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("./v1/swagger.json", "Identity Service v1");
+        options.DocumentTitle = "AI-Powered Smart Restaurant Platform — Identity";
+        options.RoutePrefix = "swagger";
+        // Tokens remain in this page's memory; do not persist authorization to browser storage.
+        options.ConfigObject.PersistAuthorization = false;
+    });
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

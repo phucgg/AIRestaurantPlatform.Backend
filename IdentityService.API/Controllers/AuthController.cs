@@ -12,6 +12,8 @@ public sealed class AuthController(IdentityAuthService auth) : ControllerBase
 {
     [HttpPost("login")]
     [AllowAnonymous]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken ct)
     {
         var result = await auth.Login(request, HttpContext.Connection.RemoteIpAddress?.ToString(),
@@ -21,12 +23,16 @@ public sealed class AuthController(IdentityAuthService auth) : ControllerBase
 
     [HttpPost("logout")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout(CancellationToken ct) =>
         await auth.Logout(int.Parse(User.FindFirstValue("sub")!), int.Parse(User.FindFirstValue("sid")!),
             HttpContext.Connection.RemoteIpAddress?.ToString(), ct) ? NoContent() : Unauthorized();
 
     [HttpGet("me")]
     [Authorize]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Me(CancellationToken ct)
     {
         var result = await auth.Me(int.Parse(User.FindFirstValue("sub")!), int.Parse(User.FindFirstValue("sid")!), ct);

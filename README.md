@@ -65,6 +65,17 @@ dotnet run --project IdentityService.API --launch-profile https
 
 API phát triển: `https://localhost:7032`. Khi chạy Docker, cấp secrets qua môi trường và cấu hình HTTPS/certificate hoặc HTTPS reverse proxy. Không bật logging request body, Authorization header, EF sensitive data logging hoặc IdentityModel PII.
 
+### Test trực tiếp bằng Swagger UI (chỉ Development)
+
+Chọn profile **https** rồi F5 trong Visual Studio: trình duyệt mở [https://localhost:7032/swagger](https://localhost:7032/swagger). Có thể dùng lệnh `dotnet run` với profile https phía trên và mở URL này thủ công. Tài liệu JSON: `https://localhost:7032/swagger/v1/swagger.json`. Swagger UI/JSON không được bật trong Production hoặc Staging.
+
+1. Mở **POST /api/auth/login → Try it out**. Nhập UserName/password của tài khoản đã có, rồi **Execute**. Login không yêu cầu token.
+2. Copy giá trị **accessToken** trong response, bấm **Authorize** và chỉ dán chuỗi token. **Không thêm chữ Bearer**: security scheme HTTP Bearer/JWT tự gửi `Authorization: Bearer <token>`.
+3. Dùng **GET /api/auth/me → Try it out → Execute** để xem user hiện tại. **POST /api/admin/users** chỉ được backend cho phép khi role hiện tại là **System Administrator**; Swagger mô tả quyền này nhưng không thay thế kiểm tra quyền.
+4. Gọi **POST /api/auth/logout → Execute**, kết quả thành công là 204. Dùng lại token đó gọi **GET /api/auth/me** phải nhận **401** vì session đã kết thúc. Đăng nhập lại và Authorize bằng token mới nếu cần tiếp tục.
+
+Swagger dùng đúng request/response DTO của API, không có PasswordHash trong response. Token không được persist vào browser storage; đóng/reload trang sẽ mất Authorize. Không lưu mật khẩu, hash hoặc token thật vào file ví dụ, Git, screenshots hoặc logs. Các quy tắc JWT/User/Role/UserSession vẫn được kiểm tra ở backend như khi gọi API bằng PowerShell.
+
 ## Role và Admin do chủ DB tạo thủ công
 
 Chỉ những tên sau được đăng nhập; quyền không dựa vào thứ tự RoleId:
